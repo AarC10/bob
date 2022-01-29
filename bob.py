@@ -10,15 +10,24 @@ import slack
 import os
 from pathlib import Path
 from dotenv import load_dotenv
+import datetime
 
 
 
-def post_message(channel, message):
+def dm_user(user, message):
 	try:
-		client.chat_postMessage(channel = f"#{channel}", text = str(message))
+		client.chat_postMessage(channel=f"@{user}", text=str(message))
 
 	except slack.errors.SlackApiError as e:
 		print("Could not send. Check channel entry.")
+
+def post_message(channel, message):
+	try:
+		client.chat_postMessage(channel=f"#{channel}", text=str(message))
+
+	except slack.errors.SlackApiError as e:
+		print("Could not send. " + str(e))
+
 
 def main():
 	while True:
@@ -27,6 +36,7 @@ def main():
 		if stdin != '':
 			channel, message = stdin.split('>')
 			post_message(channel, message)
+
 
 if __name__ == '__main__':
 	env_path = Path('.') / '.env'
