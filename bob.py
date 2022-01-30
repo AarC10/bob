@@ -6,41 +6,18 @@ Objectives: Be better than Jeb
 @author Aaron Chan the Ghost of Avionics Future
 """
 
-import slack
 import os
+
+from slack_bolt import App
 from pathlib import Path
 from dotenv import load_dotenv
-import datetime
-
-
-
-def dm_user(user, message):
-	try:
-		client.chat_postMessage(channel=f"@{user}", text=str(message))
-
-	except slack.errors.SlackApiError as e:
-		print("Could not send. Check channel entry.")
-
-def post_message(channel, message):
-	try:
-		client.chat_postMessage(channel=f"#{channel}", text=str(message))
-
-	except slack.errors.SlackApiError as e:
-		print("Could not send. " + str(e))
-
-
-def main():
-	while True:
-		stdin = input()
-
-		if stdin != '':
-			channel, message = stdin.split('>')
-			post_message(channel, message)
-
 
 if __name__ == '__main__':
-	env_path = Path('.') / '.env'
-	load_dotenv(dotenv_path=env_path)
+	load_dotenv()
+	app = App(
+		token=os.environ.get("SLACK_BOT_TOKEN"),
+		signing_secret=os.environ.get("SLACK_SIGNING_SECRET")
+	)
 
-	client = slack.WebClient(token=os.environ['SLACK_TOKEN'])
-	main()
+	app.start(port=int(os.environ.get("PORT", 3000)))
+
