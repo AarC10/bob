@@ -1,7 +1,9 @@
 import os
 import re
+import random
 import logging
 import time
+import datetime
 import create_wiki_page
 
 from selenium import webdriver
@@ -31,6 +33,12 @@ def say_hello(message, say):
 	user = message['user']
 	say(f"Hi there, <@{user}>!")
 
+@app.message(re.compile("(Thanks Bob)|(Thanks bob)|(thanks Bob)|(thanks bob)"))
+def thank_bob(say, payload):
+	name = random.choice(["thumbs", "ablobbouncefast", "raised_hands", "robot_face", "-w", "amongusplushspin", "cool_beans", "peepo-thumbs", "ablobblewobble", "ablobsmooch"])
+	app.client.reactions_add(channel = payload['channel'], name = name, timestamp = payload['ts'])
+
+
 @app.command("/generate-meeting-notes")
 def generate_wiki_page(ack, say, payload, respond, command):
 	ack()
@@ -47,6 +55,9 @@ def echo(ack, say, payload, respond, command):
 	if payload['user_name'] == os.environ["DEV_USER"]:
 		say(channel = payload['channel_id'], text = f"{command['text']}")
 
+	else:
+		respond(channel = payload['channel_id'], text = f"{command['text']}")
+
 	# TODO: Handle DMs
 
 def extract_subtype(body: dict, context: BoltContext, next: Callable):
@@ -54,8 +65,12 @@ def extract_subtype(body: dict, context: BoltContext, next: Callable):
 	next()
 
 # TODO: Scheduled messages testing
+# Post on Thursdays at 6:30pm
+# app.client.chat_scheduleMessage(channel = "", post_at = "", text = "")
+
 
 # TODO: Responses/Reactions to certain messages
+
 
 # @app.event({"type": "message", "subtype": None})
 # def reply_in_thread(body: dict, say: Say):
