@@ -47,9 +47,15 @@ def echo(ack, say, payload, respond, command):
 	if payload['user_name'] == os.environ["DEV_USER"]:
 		say(channel = payload['channel_id'], text = f"{command['text']}")
 
+	# TODO: Handle DMs
+
 def extract_subtype(body: dict, context: BoltContext, next: Callable):
 	context["subtype"] = body.get("event", {}).get("subtype", None)
 	next()
+
+# TODO: Scheduled messages testing
+
+# TODO: Responses/Reactions to certain messages
 
 # @app.event({"type": "message", "subtype": None})
 # def reply_in_thread(body: dict, say: Say):

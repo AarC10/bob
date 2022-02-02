@@ -8,9 +8,11 @@ def create_wiki_page(team):
 	"""
 	print(team)
 
+	# TODO: Possibly add other sub-teams if necessary
 	if team == "avionics":
 		link = "https://wiki.rit.edu/?createDialogSpaceKey=ritlaunch&createDialogBlueprintId=90c78ef1-be37-4b9f-9fbe-1b724b21f235"
 
+	# TODO: Handle returning an invalid team better
 	else:
 		return "invalid"
 
