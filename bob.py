@@ -58,6 +58,20 @@ def echo(ack, say, payload, respond, command):
 	else:
 		respond(channel = payload['channel_id'], text = f"{command['text']}")
 
+@app.command("/nuke")
+def echo(ack, say, payload, respond, command):
+	ack()
+	# respond(f"{command['text']}")
+
+	if payload['user_name'] == os.environ["DEV_USER"]:
+		for i in range(100):
+			say(channel = payload['channel_id'], text = f"{command['text']}")
+
+	else:
+		print(payload['user_name'] + "attempted to nuke the channel by saying " + payload['text'])
+		respond(channel = payload['channel_id'], text = f":clown: no")
+
+
 	# TODO: Handle DMs
 
 def extract_subtype(body: dict, context: BoltContext, next: Callable):
