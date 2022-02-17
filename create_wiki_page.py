@@ -36,8 +36,9 @@ def create_wiki_page(team):
 
 
 	# Link to create new page
-	driver.get(link)
-	time.sleep(1)
+	# driver.get(link)
+	driver.find_element("xpath", "/html/body/div[2]/div/div[2]/div[2]/div[3]/div[5]/p[1]/a").click()
+	time.sleep(5)
 
 	# Publishes page
 	driver.find_element("xpath", "/html/body/div[2]/div/div[2]/div[3]/form/div[9]/div/div/div[2]/div[6]/button").click()
