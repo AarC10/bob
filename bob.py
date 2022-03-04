@@ -45,7 +45,7 @@ def generate_wiki_page(ack, say, payload, respond, command):
 
 	link = create_wiki_page.create_wiki_page(payload['text'])
 
-	say(channel = payload['channel_id'], text = f"Meeting Notes Generated: {link}")
+	say(channel = payload['channel_id'], text = f"Avionics is starting soon! Here are your meeting notes: {link}")
 
 @app.command("/echo")
 def echo(ack, say, payload, respond, command):
@@ -70,6 +70,14 @@ def echo(ack, say, payload, respond, command):
 	else:
 		print(payload['user_name'] + "attempted to nuke the channel by saying " + payload['text'])
 		respond(channel = payload['channel_id'], text = f":clown: no")
+
+
+
+@app.event("message")
+def handle_message_events(body, logger):
+	logger.info(body)
+	print(body)
+
 
 
 	# TODO: Handle DMs
@@ -134,3 +142,21 @@ def extract_subtype(body: dict, context: BoltContext, next: Callable):
 
 if __name__ == '__main__':
 	SocketModeHandler(app, SLACK_APP_LEVEL_TOKEN).start()
+
+	# Create a timestamp for tomorrow at 9AM
+	tomorrow = datetime.date.today() + datetime.timedelta(days=1)
+	scheduled_time = datetime.time(hour=9, minute=30)
+	schedule_timestamp = datetime.datetime.combine(tomorrow, scheduled_time).strftime('%s')
+
+	try:
+		# Call the chat.scheduleMessage method using the WebClient
+		result = app.client.chat_scheduleMessage(
+			channel=channel_id,
+			text="Looking towards the future",
+			post_at=schedule_timestamp
+		)
+		# Log the result
+		logger.info(result)
+
+	except SlackApiError as e:
+		logger.error("Error scheduling message: {}".format(e))
