@@ -42,7 +42,7 @@ def thank_bob(say, payload):
 @app.message("[Jj][Ii][Mm]")
 def jim(say, payload):
 	print(payload)
-	if (payload['channel'] == "C0503C7HRLN"):
+	if (payload['channel'] == "C04SVDRGCV9"):
 		say(channel = payload['channel'], text="meow")
 
 
