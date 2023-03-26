@@ -33,10 +33,17 @@ def say_hello(message, say):
 	user = message['user']
 	say(f"Hi there, <@{user}>!")
 
-@app.message(re.compile("(Thanks Bob)|(Thanks bob)|(thanks Bob)|(thanks bob)"))
+@app.message(re.compile("[Tt][Hh][Aa][Nn][Kk][Ss] [Bb][Oo][Bb]"))
 def thank_bob(say, payload):
 	name = random.choice(["thumbs", "ablobbouncefast", "raised_hands", "robot_face", "-w", "amongusplushspin", "cool_beans", "peepo-thumbs", "ablobblewobble", "ablobsmooch"])
 	app.client.reactions_add(channel = payload['channel'], name = name, timestamp = payload['ts'])
+
+# Respond with meow to Jim in any case
+@app.message("[Jj][Ii][Mm]")
+def jim(say, payload):
+	print(payload)
+	if (payload['channel'] == "C0503C7HRLN"):
+		say(channel = payload['channel'], text="meow")
 
 
 @app.command("/generate-meeting-notes")
@@ -61,17 +68,14 @@ def echo(ack, say, payload, respond, command):
 @app.command("/nuke")
 def echo(ack, say, payload, respond, command):
 	ack()
-	# respond(f"{command['text']}")
 
 	if payload['user_name'] == os.environ["DEV_USER"]:
 		for i in range(100):
 			say(channel = payload['channel_id'], text = f"{command['text']}")
 
 	else:
-		print(payload['user_name'] + "attempted to nuke the channel by saying " + payload['text'])
+		print(payload['user_name'] + " attempted to nuke the channel by saying " + payload['text'])
 		respond(channel = payload['channel_id'], text = f":clown: no")
-
-
 
 @app.event("message")
 def handle_message_events(body, logger):
