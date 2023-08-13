@@ -4,6 +4,8 @@ import random
 import logging
 import time
 import datetime
+import traceback
+
 import create_wiki_page
 
 from selenium import webdriver
@@ -77,12 +79,41 @@ def echo(ack, say, payload, respond, command):
 		print(payload['user_name'] + " attempted to nuke the channel by saying " + payload['text'])
 		respond(channel = payload['channel_id'], text = f":clown: no")
 
+@app.command("/airstrike")
+def airstrike(ack, say, payload, respond, command):
+	logger.info(payload)
+	if payload['user_name'] == os.environ["DEV_USER"] or payload['user_name'] == os.environ["MOD_USER"]:
+		for i in range(100):
+			say(channel = payload['channel_id'], text = f"{command['text']}")
+
+
+
+
+@app.command("/execute")
+def execute(ack, say, payload, respond, command):
+	ack()
+	if "```" in command['text'] and payload['user_name'] == os.environ["DEV_USER"]:
+		try:
+			exec(command['text'].replace("```", ""))
+
+		except NameError:
+			respond(traceback.format_exc())
+			respond("Error executing:\n" + command['text'])
+	else:
+		respond("Remember to use ``` to surround your code")
+
+
+
+
+
+
 @app.event("message")
 def handle_message_events(body, logger):
 	logger.info(body)
-	print(body)
 
-
+	if body.get("event").get("type") == "message":
+		# print("[" + "] " body.get	 + ":" + body.get("event").get("text"))
+		print(body.get("event").get("text"))
 
 	# TODO: Handle DMs
 
