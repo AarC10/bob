@@ -73,7 +73,18 @@ def echo(ack, say, payload, respond, command):
 
 	if payload['user_name'] == os.environ["DEV_USER"]:
 		for i in range(100):
+			# Check for tags
+			if "<@" in command['text']:
+				# Get the user ID
+				user_id = command['text'].split("<@")[1].split(">")[0]
+				# Get the user's name
+				user_name = app.client.users_info(user = user_id)['user']['name']
+				# Replace the tag with the user's name
+				command['text'] = command['text'].replace(f"<@{user_id}>", f"@{user_name}")
+
 			say(channel = payload['channel_id'], text = f"{command['text']}")
+
+
 
 	else:
 		print(payload['user_name'] + " attempted to nuke the channel by saying " + payload['text'])
