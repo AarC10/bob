@@ -119,6 +119,18 @@ def rawr(ack, payload, respond, command):
 		else:
 			respond("Please tag a user to rawr at")
 
+@app.command("/nukerawr")
+def nuke_rawr(ack, payload, respond, command):
+	ack()
+	logger.info(payload)
+	if check_user_in_payload(payload):
+		if "@" in command['text']:
+			user_id = command['text'].split()[0]
+			for i in range(100):
+				app.client.chat_postMessage(channel = user_id, text = command['text'].replace(user_id, ""))
+		else:
+			respond("Please tag a user to nuke rawr at")
+
 @app.command("/execute")
 def execute(ack, say, payload, respond, command):
 	ack()
