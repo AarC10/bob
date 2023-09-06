@@ -24,6 +24,9 @@ SLACK_APP_LEVEL_TOKEN = os.environ["SLACK_APP_LEVEL_TOKEN"]
 app = App(token=SLACK_TOKEN, signing_secret=SLACK_SIGNING_SECRET)
 logger = logging.getLogger(__name__)
 
+def check_user_in_payload(payload):
+	return payload['user_name'] == os.environ["DEV_USER"] or payload['user_name'] == os.environ["MOD_USER"]
+
 
 @app.middleware
 def log_request(logger: logging.Logger, body: dict, next: Callable):
@@ -62,13 +65,13 @@ def echo(ack, say, payload, respond, command):
 	# respond(f"{command['text']}")
 
 	if payload['user_name'] == os.environ["DEV_USER"]:
-		say(channel = payload['channel_id'], text = f"{command['text']}")
+		say(channel = payload['channel_id'], text = f"{command['text']}", link_names = True)
 
 	else:
 		respond(channel = payload['channel_id'], text = f"{command['text']}")
 
 @app.command("/nuke")
-def echo(ack, say, payload, respond, command):
+def nuke(ack, say, payload, respond, command):
 	ack()
 
 	if payload['user_name'] == os.environ["DEV_USER"]:
@@ -82,23 +85,39 @@ def echo(ack, say, payload, respond, command):
 				# Replace the tag with the user's name
 				command['text'] = command['text'].replace(f"<@{user_id}>", f"@{user_name}")
 
-			say(channel = payload['channel_id'], text = f"{command['text']}")
-
-
-
+			say(channel = payload['channel_id'], text = f"{command['text']}", link_names = True)
 	else:
 		print(payload['user_name'] + " attempted to nuke the channel by saying " + payload['text'])
 		respond(channel = payload['channel_id'], text = f":clown: no")
 
 @app.command("/airstrike")
 def airstrike(ack, say, payload, respond, command):
+	ack()
 	logger.info(payload)
 	if payload['user_name'] == os.environ["DEV_USER"] or payload['user_name'] == os.environ["MOD_USER"]:
-		for i in range(100):
-			say(channel = payload['channel_id'], text = f"{command['text']}")
+		if "everyone" in command['text']:
+			return # TODO: Grab everyone in the channel
+
+		names = command['text'].split(" ")
+		for i in range(5):
+			for name in names:
+				say(channel=payload['channel_id'], text=f"@" + name, link_names=True)
+			time.sleep(1)
+
+	else:
+		say(channel=payload['channel_id'], text="L Bozo @" + payload['user_name'], link_names=True)
 
 
-
+@app.command("/rawr")
+def rawr(ack, payload, respond, command):
+	ack()
+	logger.info(payload)
+	if check_user_in_payload(payload):
+		if "@" in command['text']:
+			user_id = command['text'].split()[0]
+			app.client.chat_postMessage(channel = user_id, text = command['text'].replace(user_id, ""))
+		else:
+			respond("Please tag a user to rawr at")
 
 @app.command("/execute")
 def execute(ack, say, payload, respond, command):
@@ -113,18 +132,14 @@ def execute(ack, say, payload, respond, command):
 	else:
 		respond("Remember to use ``` to surround your code")
 
-
-
-
-
-
 @app.event("message")
 def handle_message_events(body, logger):
 	logger.info(body)
 
 	if body.get("event").get("type") == "message":
+		print(body)
 		# print("[" + "] " body.get	 + ":" + body.get("event").get("text"))
-		print(body.get("event").get("text"))
+		# print(body.get("event").get("text"))
 
 	# TODO: Handle DMs
 
