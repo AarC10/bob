@@ -164,7 +164,6 @@ def extract_subtype(body: dict, context: BoltContext, next: Callable):
 # app.client.chat_scheduleMessage(channel = "", post_at = "", text = "")
 
 
-# TODO: Responses/Reactions to certain messages
 
 
 # @app.event({"type": "message", "subtype": None})
