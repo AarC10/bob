@@ -159,6 +159,12 @@ def extract_subtype(body: dict, context: BoltContext, next: Callable):
 	context["subtype"] = body.get("event", {}).get("subtype", None)
 	next()
 
+def react_to_message(message_link, reaction):
+	message_id = message_link.split("/")[-1]
+	channel_id = message_link.split("/")[-2]
+	message_id = message_id[:-6] + "." + message_id[-6:]
+	app.client.reactions_add(channel = channel_id, name = reaction, timestamp = message_id)
+
 # TODO: Scheduled messages testing
 # Post on Thursdays at 6:30pm
 # app.client.chat_scheduleMessage(channel = "", post_at = "", text = "")
