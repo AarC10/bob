@@ -3,12 +3,12 @@ Description=The Smartest Kerbonaut
 After=network.target
 
 [Service]
-ExecStart=/home/aaron/bob/venv/bin/python /home/aaron/bob/app.py
-WorkingDirectory=/home/aaron/Apps/bob/venv/bin
+Type=simple
+WorkingDirectory=/home/aaron/Apps/bob
+ExecStart=/home/aaron/Apps/bob/venv/bin/python /home/aaron/Apps/bob/bob.py
 Restart=always
 User=aaron
 Group=aaron
-Environment="PATH=/home/aaron/Apps/bob/venv/bin"
 
 [Install]
 WantedBy=multi-user.target
