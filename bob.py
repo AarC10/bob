@@ -341,13 +341,11 @@ def rit_router(ack, payload, respond, command):
 
 	try:
 		data = get_todays_visiting_chefs_from_locations()
+		logger.info(data)
+		
 		respond(format_chefs_message(data))
 	except Exception as e:
 		respond(f"Failed to fetch visiting chefs: {e}")
-		return
-
-	if not chefs:
-		respond("No visiting chefs found for today.")
 		return
 
 if __name__ == '__main__':
