@@ -302,6 +302,7 @@ def fetch_html(url: str) -> str:
 def get_todays_visiting_chefs_from_locations() -> dict[str, list[str]]:
 	results: dict[str, list[str]] = {}
 	for loc_name, url in CHEF_PAGES.items():
+		logger.info(f"Fetching chefs for {loc_name} from {url}")
 		try:
 			html = fetch_html(url)
 			soup = BeautifulSoup(html, "html.parser")
@@ -313,6 +314,7 @@ def get_todays_visiting_chefs_from_locations() -> dict[str, list[str]]:
 				results[loc_name] = chefs
 
 		except Exception as e:
+			logger.error(f"Error fetching/parsing chefs for {loc_name} from {url}: {e}")
 			results[loc_name] = [f"[ERROR fetching/parsing: {e}]"]
 
 	return results
