@@ -266,49 +266,74 @@ LOCATION_MAP = {
 	"Brick City Cafe": "Brick City Cafe",
 }
 
-def get_todays_visiting_chefs():
-	headers = {
-		"User-Agent": "BobSlackBot/1.0 (RIT Dining)"
-	}
+MENUS_URL = "https://www.rit.edu/dining/menus"
 
+LOCATION_NAMES = [
+	"RITZ Sports Zone",
+	"Cafe & Market at Crossroads",
+	"Brick City Cafe",
+]
+
+def get_todays_visiting_chefs():
+	headers = {"User-Agent": "BobSlackBot/1.0 (RIT Dining)"}
 	resp = requests.get(MENUS_URL, headers=headers, timeout=30)
 	resp.raise_for_status()
 
 	soup = BeautifulSoup(resp.text, "html.parser")
 
-	results = {}
-
-	header = soup.find(lambda tag: tag.name in ("h2", "h3") and "Today's Visiting Chefs" in tag.get_text())
-	if not header:
-		print("Header not found for Visiting Chefs")
+	today_header = soup.find(
+		lambda t: isinstance(t, Tag)
+		and t.name in ("h2", "h3", "h4")
+		and "visiting chefs" in t.get_text(" ", strip=True).lower()
+		and "today" in t.get_text(" ", strip=True).lower()
+	)
+	if not today_header:
 		return {}
 
-	section = header.find_parent("section") or header.parent
+	section = today_header.find_parent("section") or today_header.find_parent("div") or soup
 
-	for location_name in LOCATION_MAP.keys():
-		results[location_name] = []
+	results = {}
 
-		loc_header = section.find(lambda tag:
-			tag.name in ("h3", "h4") and location_name in tag.get_text()
+	def is_location_header(tag: Tag) -> bool:
+		if not isinstance(tag, Tag) or tag.name not in ("h2", "h3", "h4", "h5"):
+			return False
+		txt = tag.get_text(" ", strip=True)
+		return any(loc.lower() in txt.lower() for loc in LOCATION_NAMES)
+
+	def find_location_header(loc: str):
+		return section.find(
+			lambda t: isinstance(t, Tag)
+			and t.name in ("h2", "h3", "h4", "h5")
+			and loc.lower() in t.get_text(" ", strip=True).lower()
 		)
 
+	for loc in LOCATION_NAMES:
+		loc_header = find_location_header(loc)
 		if not loc_header:
 			continue
 
-		ul = loc_header.find_next("ul")
-		if not ul:
-			continue
+		items = []
 
-		for li in ul.find_all("li"):
-			text = li.get_text(strip=True)
+		for node in loc_header.next_elements:
+			if node is loc_header:
+				continue
+			if isinstance(node, Tag) and is_location_header(node):
+				break
 
-			if "(" in text and ")" in text:
-				vendor, time_range = text.rsplit("(", 1)
-				results[location_name].append(
-					(vendor.strip(), time_range.rstrip(")"))
-				)
+			if isinstance(node, Tag) and node.name == "div" and "chef-name" in (node.get("class") or []):
+				name_time = node.get_text(" ", strip=True)
 
-	return {k: v for k, v in results.items() if v}
+				desc = ""
+				desc_div = node.find_next_sibling("div")
+				if isinstance(desc_div, Tag) and "chef-desc" in (desc_div.get("class") or []):
+					desc = desc_div.get_text(" ", strip=True)
+
+				items.append((name_time, desc))
+
+		if items:
+			results[loc] = items
+
+	return results
 
 @app.command("/rit")
 def rit_router(ack, payload, respond, command):
