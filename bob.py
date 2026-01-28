@@ -19,6 +19,9 @@ from slack_bolt.adapter.socket_mode import SocketModeHandler
 
 import requests
 from bs4 import BeautifulSoup, Tag
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+
 
 load_dotenv()
 SLACK_TOKEN = os.environ["SLACK_BOT_TOKEN"]
