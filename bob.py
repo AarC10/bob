@@ -265,36 +265,62 @@ LOCATION_LINKS = {
 	"Brick City Cafe": "https://www.rit.edu/dining/location/kitchen-brick-city",
 }
 
-def get_todays_visiting_chefs():
-	html = requests.get(RIT_MENUS_URL, timeout=10).text
+LOCATION_ALIASES = {
+	"RITZ Sports Zone": "RITZ Sports Zone",
+	"The Cafe & Market at Crossroads": "Cafe & Market at Crossroads",
+	"Brick City Cafe": "Brick City Cafe",
+}
 
-	# Grabs "Today's Visiting Chefs" section by slicing from that header onward
-	m = re.search(r"Today's Visiting Chefs", html, re.IGNORECASE)
-	if not m:
+def get_todays_visiting_chefs():
+	headers = {
+		"User-Agent": "BobSlackBot/1.0 (RIT Dining)"
+	}
+
+	resp = requests.get(MENUS_URL, headers=headers, timeout=25)
+	resp.raise_for_status()
+
+	html = resp.text
+
+	html = re.sub(r"\s+", " ", html)
+
+	section_match = re.search(
+		r"Today's Visiting Chefs(.*?)(Tomorrow's Visiting Chefs|Menu Filter)",
+		html,
+		re.IGNORECASE
+	)
+
+	if not section_match:
 		return {}
 
-	section = html[m.start():]
+	section = section_match.group(1)
 
-	# Normalize
-	section = re.sub(r"\s+", " ", section)
+	results = {}
 
-	results = {k: [] for k in LOCATION_LINKS.keys()}
+	for display_name, key in LOCATION_ALIASES.items():
+		pattern = (
+			re.escape(display_name)
+			+ r"(.*?)(?="
+			+ "|".join(map(re.escape, LOCATION_ALIASES.keys()))
+			+ r"|Tomorrow's Visiting Chefs|Menu Filter)"
+		)
 
-	for loc in results.keys():
-		loc_pat = re.escape(loc)
-		next_locs = [re.escape(x) for x in results.keys() if x != loc]
-		stop_pat = r"(?:Menu Filter|" + "|".join(next_locs) + r")"
-		block_m = re.search(loc_pat + r"(.*?)(?=" + stop_pat + r")", section, re.IGNORECASE)
-		if not block_m:
+		loc_match = re.search(pattern, section, re.IGNORECASE)
+		if not loc_match:
 			continue
 
-		block = block_m.group(1)
+		block = loc_match.group(1)
 
-		for vendor, times in re.findall(r">?\s*([A-Za-z0-9'’&.\- ]+?)\s*:\s*([0-9]{1,2}\s*(?:a\.m\.|p\.m\.)\s*-\s*[0-9]{1,2}\s*(?:a\.m\.|p\.m\.))", block):
-			results[loc].append((vendor.strip(), times.strip()))
+		items = []
+		for vendor, time_range in re.findall(
+			r"([A-Za-z0-9'’&.\- ]+?)\s*:\s*([0-9]{1,2}\s*(?:a\.m\.|p\.m\.)\s*-\s*[0-9]{1,2}\s*(?:a\.m\.|p\.m\.))",
+			block
+		):
+			items.append((vendor.strip(), time_range.strip()))
 
-	return {loc: items for loc, items in results.items() if items}
+		if items:
+			results[key] = items
 
+	return results
 
 @app.command("/rit")
 def rit_router(ack, payload, respond, command):
@@ -305,7 +331,7 @@ def rit_router(ack, payload, respond, command):
 		respond("Usage: /rit chefs")
 		return
 
-	if args[0].lower() != "chefs":
+	if args[0].lower() != "chef":
 		respond("Unknown subcommand. Usage: /rit chefs")
 		return
 
