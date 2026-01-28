@@ -19,6 +19,8 @@ from slack_bolt import App, Say, BoltContext
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 
 import requests
+import concurrent.futures
+
 from bs4 import BeautifulSoup, Tag
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
@@ -342,21 +344,26 @@ def get_todays_visiting_chefs_from_locations() -> dict[str, list[str]]:
 	results: dict[str, list[str]] = {}
 	today = datetime.date.today().isoformat()
 
-	for loc_name, url in CHEF_PAGES.items():
+	def fetch_and_parse(loc_name_url):
+		loc_name, url = loc_name_url
 		try:
 			logger.info(f"[chefs] fetching {loc_name}: {url}")
 			html = fetch_html(url)
 			chef_data = _extract_chef_json(html)
 			if not chef_data:
 				logger.warning(f"[chefs] no chefData found for {loc_name}")
-				results[loc_name] = []
-				continue
-
+				return (loc_name, [])
 			chefs = _collect_visiting_chefs(chef_data, today)
-			results[loc_name] = chefs
+			return (loc_name, chefs)
 		except Exception as exc:
 			logger.error(f"[chefs] failed {loc_name}: {exc}")
-			results[loc_name] = [f"[ERROR: {exc}]"]
+			return (loc_name, [f"[ERROR: {exc}]"])
+
+	with concurrent.futures.ThreadPoolExecutor() as executor:
+		futures = [executor.submit(fetch_and_parse, item) for item in CHEF_PAGES.items()]
+		for future in concurrent.futures.as_completed(futures):
+			loc_name, chefs = future.result()
+			results[loc_name] = chefs
 
 	return results
 
