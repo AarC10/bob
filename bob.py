@@ -371,7 +371,7 @@ def rit_router(ack, payload, respond, command):
         respond("Usage: /rit chefs")
         return
 
-    if args[0].lower() != "chef" or args[0].lower() != "chefs":
+    if args[0].lower() != "chef" and args[0].lower() != "chefs":
         respond("Unknown subcommand. Usage: /rit chef")
         return
 
