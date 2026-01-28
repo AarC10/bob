@@ -1,0 +1,14 @@
+[Unit]
+Description=The Smartest Kerbonaut
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/aaron/Apps/bob
+ExecStart=/home/aaron/Apps/bob/venv/bin/python /home/aaron/Apps/bob/bob.py
+Restart=always
+User=aaron
+Group=aaron
+
+[Install]
+WantedBy=multi-user.target
