@@ -256,18 +256,13 @@ def cleanup_emotes(message_link: str) -> None:
 
 import re
 import requests
+from bs4 import BeautifulSoup
 
-RIT_MENUS_URL = "https://www.rit.edu/dining/menus"
+MENUS_URL = "https://www.rit.edu/dining/menus"
 
-LOCATION_LINKS = {
-	"RITZ Sports Zone": "https://www.rit.edu/dining/location/ritz",
-	"The Cafe & Market at Crossroads": "https://www.rit.edu/dining/location/cafe-and-market-crossroads",
-	"Brick City Cafe": "https://www.rit.edu/dining/location/kitchen-brick-city",
-}
-
-LOCATION_ALIASES = {
+LOCATION_MAP = {
 	"RITZ Sports Zone": "RITZ Sports Zone",
-	"The Cafe & Market at Crossroads": "Cafe & Market at Crossroads",
+	"Cafe & Market at Crossroads": "Cafe & Market at Crossroads",
 	"Brick City Cafe": "Brick City Cafe",
 }
 
@@ -276,51 +271,43 @@ def get_todays_visiting_chefs():
 		"User-Agent": "BobSlackBot/1.0 (RIT Dining)"
 	}
 
-	resp = requests.get(MENUS_URL, headers=headers, timeout=25)
+	resp = requests.get(MENUS_URL, headers=headers, timeout=30)
 	resp.raise_for_status()
 
-	html = resp.text
-
-	html = re.sub(r"\s+", " ", html)
-
-	section_match = re.search(
-		r"Today's Visiting Chefs(.*?)(Tomorrow's Visiting Chefs|Menu Filter)",
-		html,
-		re.IGNORECASE
-	)
-
-	if not section_match:
-		return {}
-
-	section = section_match.group(1)
+	soup = BeautifulSoup(resp.text, "html.parser")
 
 	results = {}
 
-	for display_name, key in LOCATION_ALIASES.items():
-		pattern = (
-			re.escape(display_name)
-			+ r"(.*?)(?="
-			+ "|".join(map(re.escape, LOCATION_ALIASES.keys()))
-			+ r"|Tomorrow's Visiting Chefs|Menu Filter)"
+	header = soup.find(lambda tag: tag.name in ("h2", "h3") and "Today's Visiting Chefs" in tag.get_text())
+	if not header:
+		return {}
+
+	section = header.find_parent("section") or header.parent
+
+	for location_name in LOCATION_MAP.keys():
+		results[location_name] = []
+
+		loc_header = section.find(lambda tag:
+			tag.name in ("h3", "h4") and location_name in tag.get_text()
 		)
 
-		loc_match = re.search(pattern, section, re.IGNORECASE)
-		if not loc_match:
+		if not loc_header:
 			continue
 
-		block = loc_match.group(1)
+		ul = loc_header.find_next("ul")
+		if not ul:
+			continue
 
-		items = []
-		for vendor, time_range in re.findall(
-			r"([A-Za-z0-9'’&.\- ]+?)\s*:\s*([0-9]{1,2}\s*(?:a\.m\.|p\.m\.)\s*-\s*[0-9]{1,2}\s*(?:a\.m\.|p\.m\.))",
-			block
-		):
-			items.append((vendor.strip(), time_range.strip()))
+		for li in ul.find_all("li"):
+			text = li.get_text(strip=True)
 
-		if items:
-			results[key] = items
+			if "(" in text and ")" in text:
+				vendor, time_range = text.rsplit("(", 1)
+				results[location_name].append(
+					(vendor.strip(), time_range.rstrip(")"))
+				)
 
-	return results
+	return {k: v for k, v in results.items() if v}
 
 @app.command("/rit")
 def rit_router(ack, payload, respond, command):
