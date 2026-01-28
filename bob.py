@@ -197,6 +197,7 @@ def cleanup_emotes(message_link: str) -> None:
 		try:
 			app.client.reactions_remove(channel=channel_id, timestamp=ts, name=emoji)
 			removed.append(emoji)
+			# sleep 
 		except Exception as e:
 			failed.append((emoji, str(e)))
 
@@ -252,6 +253,82 @@ def cleanup_emotes(message_link: str) -> None:
 # def just_ack(logger, context):
 # 	subtype = context["subtype"]  # by extract_subtype
 # 	logger.info(f"{subtype} is ignored")
+
+import re
+import requests
+
+RIT_MENUS_URL = "https://www.rit.edu/dining/menus"
+
+LOCATION_LINKS = {
+	"RITZ Sports Zone": "https://www.rit.edu/dining/location/ritz",
+	"The Cafe & Market at Crossroads": "https://www.rit.edu/dining/location/cafe-and-market-crossroads",
+	"Brick City Cafe": "https://www.rit.edu/dining/location/kitchen-brick-city",
+}
+
+def get_todays_visiting_chefs():
+	html = requests.get(RIT_MENUS_URL, timeout=10).text
+
+	# Grabs "Today's Visiting Chefs" section by slicing from that header onward
+	m = re.search(r"Today's Visiting Chefs", html, re.IGNORECASE)
+	if not m:
+		return {}
+
+	section = html[m.start():]
+
+	# Normalize
+	section = re.sub(r"\s+", " ", section)
+
+	results = {k: [] for k in LOCATION_LINKS.keys()}
+
+	for loc in results.keys():
+		loc_pat = re.escape(loc)
+		next_locs = [re.escape(x) for x in results.keys() if x != loc]
+		stop_pat = r"(?:Menu Filter|" + "|".join(next_locs) + r")"
+		block_m = re.search(loc_pat + r"(.*?)(?=" + stop_pat + r")", section, re.IGNORECASE)
+		if not block_m:
+			continue
+
+		block = block_m.group(1)
+
+		for vendor, times in re.findall(r">?\s*([A-Za-z0-9'’&.\- ]+?)\s*:\s*([0-9]{1,2}\s*(?:a\.m\.|p\.m\.)\s*-\s*[0-9]{1,2}\s*(?:a\.m\.|p\.m\.))", block):
+			results[loc].append((vendor.strip(), times.strip()))
+
+	return {loc: items for loc, items in results.items() if items}
+
+
+@app.command("/rit")
+def rit_router(ack, payload, respond, command):
+	ack()
+	args = (command.get("text") or "").strip().split()
+
+	if not args:
+		respond("Usage: /rit chefs")
+		return
+
+	if args[0].lower() != "chefs":
+		respond("Unknown subcommand. Usage: /rit chefs")
+		return
+
+	try:
+		chefs = get_todays_visiting_chefs()
+	except Exception as e:
+		respond(f"Failed to fetch visiting chefs: {e}")
+		return
+
+	if not chefs:
+		respond("No visiting chefs found for today.")
+		return
+
+	lines = ["*Today's Visiting Chefs:*"]
+	for loc, items in chefs.items():
+		link = LOCATION_LINKS.get(loc, "")
+		header = f"*{loc}*" + (f" ({link})" if link else "")
+		lines.append(header)
+		for vendor, times in items:
+			lines.append(f"* {vendor} — {times}")
+
+	respond("\n".join(lines))
+
 
 if __name__ == '__main__':
 	SocketModeHandler(app, SLACK_APP_LEVEL_TOKEN).start()
