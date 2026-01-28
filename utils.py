@@ -2,6 +2,7 @@
 import os
 import threading
 import time
+import random
 
 # Global app instance
 _app = None
@@ -82,8 +83,9 @@ def react_spam(message_link: str, delay: float = 1.0):
 	emoji_list = _app.client.emoji_list()
 	emojis = list(emoji_list.get("emoji", {}).keys())
 	
-	standard = ["thumbsup", "thumbsdown", "heart", "eyes", "fire", "100", "rocket", "tada"]
+	standard = ["eyes", "fire", "100", "rocket", "tada"]
 	all_emojis = standard + emojis
+	random.shuffle(all_emojis)
 	
 	print(f"Starting to add {len(all_emojis)} reactions to message...")
 	_reaction_thread_stop.clear()
