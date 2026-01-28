@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import os
 import re
+import json
 import random
 import logging
 import time
@@ -303,50 +304,59 @@ def fetch_html(url: str) -> str:
 	return resp.text
 
 
-CHEF_PAGES = {
-	"RITZ Sports Zone": "https://www.rit.edu/dining/location/ritz",
-	"The Cafe & Market at Crossroads": "https://www.rit.edu/dining/location/cafe-and-market-crossroads",
-	"Kitchen at Brick City": "https://www.rit.edu/dining/location/kitchen-brick-city",
-}
+def _extract_chef_json(html: str) -> dict | None:
+	match = re.search(r"var\s+chefData\s*=\s*JSON\.parse\(`(?P<data>.*?)`\);", html, re.DOTALL)
+	if not match:
+		return None
 
-def get_todays_visiting_chefs_from_locations_selenium() -> dict[str, list[str]]:
-	results: dict[str, list[str]] = {}
-
-	opts = webdriver.ChromeOptions()
-	opts.add_argument("--headless=new")
-	opts.add_argument("--no-sandbox")
-	opts.add_argument("--disable-dev-shm-usage")
-
-	driver = webdriver.Chrome(options=opts)
-
+	raw_json = match.group("data")
 	try:
-		for loc_name, url in CHEF_PAGES.items():
-			try:
-				logger.info(f"[chefs] loading {loc_name}: {url}")
-				driver.get(url)
+		return json.loads(raw_json)
+	except json.JSONDecodeError as exc:
+		logger.error(f"[chefs] failed to parse chefData JSON: {exc}")
+		return None
 
-				WebDriverWait(driver, 15).until(
-					EC.presence_of_element_located((By.XPATH, "//*[contains(., \"Today\") and contains(., \"Visiting Chefs\")]"))
-				)
 
-				try:
-					WebDriverWait(driver, 10).until(
-						EC.presence_of_all_elements_located((By.CSS_SELECTOR, "div.chef-name"))
-					)
-				except Exception:
-					pass
+def _collect_visiting_chefs(chef_data: dict, date_str: str) -> list[str]:
+	chefs: list[str] = []
+	for events in chef_data.values():
+		for event in events:
+			if event.get("date") != date_str:
+				continue
+			for menu in event.get("menus") or []:
+				if (menu.get("category") or "").lower() != "visiting chef":
+					continue
+				name = menu.get("name") or "Unknown chef"
+				note = menu.get("name_note")
+				description = menu.get("description")
+				parts = [name]
+				if note:
+					parts.append(note)
+				if description:
+					parts.append(description)
+				chefs.append(" — ".join(parts))
+	return chefs
 
-				chef_elems = driver.find_elements(By.CSS_SELECTOR, "div.chef-name")
-				chefs = [e.text.strip() for e in chef_elems if e.text and e.text.strip()]
 
-				results[loc_name] = chefs
+def get_todays_visiting_chefs_from_locations() -> dict[str, list[str]]:
+	results: dict[str, list[str]] = {}
+	today = datetime.date.today().isoformat()
 
-			except Exception as e:
-				logger.error(f"[chefs] failed {loc_name}: {e}")
-				results[loc_name] = [f"[ERROR: {e}]"]
+	for loc_name, url in CHEF_PAGES.items():
+		try:
+			logger.info(f"[chefs] fetching {loc_name}: {url}")
+			html = fetch_html(url)
+			chef_data = _extract_chef_json(html)
+			if not chef_data:
+				logger.warning(f"[chefs] no chefData found for {loc_name}")
+				results[loc_name] = []
+				continue
 
-	finally:
-		driver.quit()
+			chefs = _collect_visiting_chefs(chef_data, today)
+			results[loc_name] = chefs
+		except Exception as exc:
+			logger.error(f"[chefs] failed {loc_name}: {exc}")
+			results[loc_name] = [f"[ERROR: {exc}]"]
 
 	return results
 
@@ -364,19 +374,19 @@ def format_chefs_message(chefs_by_loc: dict[str, list[str]]) -> str:
 
 @app.command("/rit")
 def rit_router(ack, payload, respond, command):
-    ack()
-    args = (command.get("text") or "").strip().split()
+	ack()
+	args = (command.get("text") or "").strip().split()
 
-    if not args:
-        respond("Usage: /rit chefs")
-        return
+	if not args:
+		respond("Usage: /rit chefs")
+		return
 
-    if args[0].lower() != "chef" and args[0].lower() != "chefs":
-        respond("Unknown subcommand. Usage: /rit chef")
-        return
+	if args[0].lower() != "chef" and args[0].lower() != "chefs":
+		respond("Unknown subcommand. Usage: /rit chef")
+		return
 
-    data = get_todays_visiting_chefs_from_locations_selenium()
-    respond(format_chefs_message(data))
+	data = get_todays_visiting_chefs_from_locations()
+	respond(format_chefs_message(data))
 
 if __name__ == '__main__':
 	SocketModeHandler(app, SLACK_APP_LEVEL_TOKEN).start()
