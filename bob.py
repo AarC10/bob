@@ -406,11 +406,9 @@ def react_spam(message_link: str, delay: float = 1.0):
     channel_id = message_link.split("/")[-2]
     ts = message_id[:-6] + "." + message_id[-6:]
     
-    # Get all custom emojis
     emoji_list = app.client.emoji_list()
     emojis = list(emoji_list.get("emoji", {}).keys())
     
-    # Also include some standard emojis
     standard = ["thumbsup", "thumbsdown", "heart", "eyes", "fire", "100", "rocket", "tada"]
     all_emojis = standard + emojis
     
