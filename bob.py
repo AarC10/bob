@@ -17,6 +17,9 @@ from slack_sdk import WebClient
 from slack_bolt import App, Say, BoltContext
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 
+import requests
+from bs4 import BeautifulSoup, Tag
+
 load_dotenv()
 SLACK_TOKEN = os.environ["SLACK_BOT_TOKEN"]
 SLACK_SIGNING_SECRET = os.environ["SLACK_SIGNING_SECRET"]
@@ -254,9 +257,7 @@ def cleanup_emotes(message_link: str) -> None:
 # 	subtype = context["subtype"]  # by extract_subtype
 # 	logger.info(f"{subtype} is ignored")
 
-import re
-import requests
-from bs4 import BeautifulSoup
+
 
 MENUS_URL = "https://www.rit.edu/dining/menus"
 
