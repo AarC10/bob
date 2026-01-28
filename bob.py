@@ -275,66 +275,53 @@ LOCATION_NAMES = [
 	"Brick City Cafe",
 ]
 
-def get_todays_visiting_chefs():
-	headers = {"User-Agent": "BobSlackBot/1.0 (RIT Dining)"}
-	resp = requests.get(MENUS_URL, headers=headers, timeout=30)
-	resp.raise_for_status()
+CHEF_PAGES = {
+	"RITZ Sports Zone": "https://www.rit.edu/dining/location/ritz",
+	"The Cafe & Market at Crossroads": "https://www.rit.edu/dining/location/cafe-and-market-crossroads",
+	"Kitchen at Brick City": "https://www.rit.edu/dining/location/kitchen-brick-city",
+}
 
-	soup = BeautifulSoup(resp.text, "html.parser")
-
-	today_header = soup.find(
-		lambda t: isinstance(t, Tag)
-		and t.name in ("h2", "h3", "h4")
-		and "visiting chefs" in t.get_text(" ", strip=True).lower()
-		and "today" in t.get_text(" ", strip=True).lower()
+def fetch_html(url: str) -> str:
+	session = requests.Session()
+	retries = Retry(
+		total=3,
+		backoff_factor=1.5,
+		status_forcelist=[429, 500, 502, 503, 504],
+		allowed_methods=["GET"],
 	)
-	if not today_header:
-		return {}
+	session.mount("https://", HTTPAdapter(max_retries=retries))
 
-	section = today_header.find_parent("section") or today_header.find_parent("div") or soup
+	headers = {"User-Agent": "BobSlackBot/1.0 (RIT Dining Visiting Chefs)"}
+	resp = session.get(url, headers=headers, timeout=30)  # increase timeout here
+	resp.raise_for_status()
+	return resp.text
 
-	results = {}
+def get_todays_visiting_chefs_from_locations() -> dict[str, list[str]]:
+	results: dict[str, list[str]] = {}
+	for loc_name, url in CHEF_PAGES.items():
+		try:
+			html = fetch_html(url)
+			soup = BeautifulSoup(html, "html.parser")
 
-	def is_location_header(tag: Tag) -> bool:
-		if not isinstance(tag, Tag) or tag.name not in ("h2", "h3", "h4", "h5"):
-			return False
-		txt = tag.get_text(" ", strip=True)
-		return any(loc.lower() in txt.lower() for loc in LOCATION_NAMES)
+			chef_divs = soup.select("div.chef-name")
+			chefs = [d.get_text(" ", strip=True) for d in chef_divs if d.get_text(strip=True)]
 
-	def find_location_header(loc: str):
-		return section.find(
-			lambda t: isinstance(t, Tag)
-			and t.name in ("h2", "h3", "h4", "h5")
-			and loc.lower() in t.get_text(" ", strip=True).lower()
-		)
+			if chefs:
+				results[loc_name] = chefs
 
-	for loc in LOCATION_NAMES:
-		loc_header = find_location_header(loc)
-		if not loc_header:
-			continue
-
-		items = []
-
-		for node in loc_header.next_elements:
-			if node is loc_header:
-				continue
-			if isinstance(node, Tag) and is_location_header(node):
-				break
-
-			if isinstance(node, Tag) and node.name == "div" and "chef-name" in (node.get("class") or []):
-				name_time = node.get_text(" ", strip=True)
-
-				desc = ""
-				desc_div = node.find_next_sibling("div")
-				if isinstance(desc_div, Tag) and "chef-desc" in (desc_div.get("class") or []):
-					desc = desc_div.get_text(" ", strip=True)
-
-				items.append((name_time, desc))
-
-		if items:
-			results[loc] = items
+		except Exception as e:
+			results[loc_name] = [f"[ERROR fetching/parsing: {e}]"]
 
 	return results
+
+def format_chefs_message(chefs_by_loc: dict[str, list[str]]) -> str:
+	lines = []
+	for loc, chefs in chefs_by_loc.items():
+		lines.append(f"{loc}")
+		for c in chefs:
+			lines.append(c)
+		lines.append("")
+	return "\n".join(lines).strip()
 
 @app.command("/rit")
 def rit_router(ack, payload, respond, command):
@@ -350,7 +337,8 @@ def rit_router(ack, payload, respond, command):
 		return
 
 	try:
-		chefs = get_todays_visiting_chefs()
+		data = get_todays_visiting_chefs_from_locations()
+		respond(format_chefs_message(data))
 	except Exception as e:
 		respond(f"Failed to fetch visiting chefs: {e}")
 		return
@@ -358,17 +346,6 @@ def rit_router(ack, payload, respond, command):
 	if not chefs:
 		respond("No visiting chefs found for today.")
 		return
-
-	lines = ["*Today's Visiting Chefs:*"]
-	for loc, items in chefs.items():
-		link = LOCATION_LINKS.get(loc, "")
-		header = f"*{loc}*" + (f" ({link})" if link else "")
-		lines.append(header)
-		for vendor, times in items:
-			lines.append(f"* {vendor} — {times}")
-
-	respond("\n".join(lines))
-
 
 if __name__ == '__main__':
 	SocketModeHandler(app, SLACK_APP_LEVEL_TOKEN).start()
