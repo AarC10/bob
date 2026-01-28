@@ -300,24 +300,24 @@ def fetch_html(url: str) -> str:
 	return resp.text
 
 def get_todays_visiting_chefs_from_locations() -> dict[str, list[str]]:
-	results: dict[str, list[str]] = {}
-	for loc_name, url in CHEF_PAGES.items():
-		logger.info(f"Fetching chefs for {loc_name} from {url}")
-		try:
-			html = fetch_html(url)
-			soup = BeautifulSoup(html, "html.parser")
+    results: dict[str, list[str]] = {}
 
-			chef_divs = soup.select("div.chef-name")
-			chefs = [d.get_text(" ", strip=True) for d in chef_divs if d.get_text(strip=True)]
+    for loc_name, url in CHEF_PAGES.items():
+        logger.info(f"Fetching chefs for {loc_name} from {url}")
+        try:
+            html = fetch_html(url)
+            soup = BeautifulSoup(html, "html.parser")
 
-			if chefs:
-				results[loc_name] = chefs
+            chef_divs = soup.select("div.chef-name")
+            chefs = [d.get_text(" ", strip=True) for d in chef_divs if d.get_text(strip=True)]
 
-		except Exception as e:
-			logger.error(f"Error fetching/parsing chefs for {loc_name} from {url}: {e}")
-			results[loc_name] = [f"[ERROR fetching/parsing: {e}]"]
+            results[loc_name] = chefs
 
-	return results
+        except Exception as e:
+            logger.error(f"Error fetching/parsing chefs for {loc_name} from {url}: {e}")
+            results[loc_name] = [f"[ERROR: {e}]"]
+
+    return results
 
 def format_chefs_message(chefs_by_loc: dict[str, list[str]]) -> str:
 	lines = []
@@ -330,25 +330,19 @@ def format_chefs_message(chefs_by_loc: dict[str, list[str]]) -> str:
 
 @app.command("/rit")
 def rit_router(ack, payload, respond, command):
-	ack()
-	args = (command.get("text") or "").strip().split()
+    ack()
+    args = (command.get("text") or "").strip().split()
 
-	if not args:
-		respond("Usage: /rit chef")
-		return
+    if not args:
+        respond("Usage: /rit chefs")
+        return
 
-	if args[0].lower() != "chef":
-		respond("Unknown subcommand. Usage: /rit chef")
-		return
+    if args[0].lower() != "chef" or args[0].lower() != "chefs":
+        respond("Unknown subcommand. Usage: /rit chef")
+        return
 
-	try:
-		data = get_todays_visiting_chefs_from_locations()
-		logger.info(data)
-		
-		respond(format_chefs_message(data))
-	except Exception as e:
-		respond(f"Failed to fetch visiting chefs: {e}")
-		return
+    data = get_todays_visiting_chefs_from_locations()
+    respond(format_chefs_message(data))
 
 if __name__ == '__main__':
 	SocketModeHandler(app, SLACK_APP_LEVEL_TOKEN).start()
