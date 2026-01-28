@@ -22,6 +22,9 @@ from bs4 import BeautifulSoup, Tag
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 
 load_dotenv()
 SLACK_TOKEN = os.environ["SLACK_BOT_TOKEN"]
@@ -299,36 +302,66 @@ def fetch_html(url: str) -> str:
 	resp.raise_for_status()
 	return resp.text
 
-def get_todays_visiting_chefs_from_locations() -> dict[str, list[str]]:
-    results: dict[str, list[str]] = {}
 
-    for loc_name, url in CHEF_PAGES.items():
-        logger.info(f"Fetching chefs for {loc_name} from {url}")
-        try:
-            html = fetch_html(url)
-            soup = BeautifulSoup(html, "html.parser")
+CHEF_PAGES = {
+	"RITZ Sports Zone": "https://www.rit.edu/dining/location/ritz",
+	"The Cafe & Market at Crossroads": "https://www.rit.edu/dining/location/cafe-and-market-crossroads",
+	"Kitchen at Brick City": "https://www.rit.edu/dining/location/kitchen-brick-city",
+}
 
-            chef_divs = soup.select("div.chef-name")
-            chefs = [d.get_text(" ", strip=True) for d in chef_divs if d.get_text(strip=True)]
+def get_todays_visiting_chefs_from_locations_selenium() -> dict[str, list[str]]:
+	results: dict[str, list[str]] = {}
 
-            results[loc_name] = chefs
+	opts = webdriver.ChromeOptions()
+	opts.add_argument("--headless=new")
+	opts.add_argument("--no-sandbox")
+	opts.add_argument("--disable-dev-shm-usage")
 
-        except Exception as e:
-            logger.error(f"Error fetching/parsing chefs for {loc_name} from {url}: {e}")
-            results[loc_name] = [f"[ERROR: {e}]"]
+	driver = webdriver.Chrome(options=opts)
 
-    return results
+	try:
+		for loc_name, url in CHEF_PAGES.items():
+			try:
+				logger.info(f"[chefs] loading {loc_name}: {url}")
+				driver.get(url)
+
+				WebDriverWait(driver, 15).until(
+					EC.presence_of_element_located((By.XPATH, "//*[contains(., \"Today\") and contains(., \"Visiting Chefs\")]"))
+				)
+
+				try:
+					WebDriverWait(driver, 10).until(
+						EC.presence_of_all_elements_located((By.CSS_SELECTOR, "div.chef-name"))
+					)
+				except Exception:
+					pass
+
+				chef_elems = driver.find_elements(By.CSS_SELECTOR, "div.chef-name")
+				chefs = [e.text.strip() for e in chef_elems if e.text and e.text.strip()]
+
+				results[loc_name] = chefs
+
+			except Exception as e:
+				logger.error(f"[chefs] failed {loc_name}: {e}")
+				results[loc_name] = [f"[ERROR: {e}]"]
+
+	finally:
+		driver.quit()
+
+	return results
 
 def format_chefs_message(chefs_by_loc: dict[str, list[str]]) -> str:
 	lines = []
 	for loc, chefs in chefs_by_loc.items():
-		lines.append(f"{loc}")
-		for c in chefs:
-			lines.append(c)
+		lines.append(f"*{loc}*")
+		if chefs:
+			for c in chefs:
+				lines.append(f"• {c}")
+		else:
+			lines.append("• (No visiting chefs listed)")
 		lines.append("")
 	return "\n".join(lines).strip()
 
-@app.command("/rit")
 def rit_router(ack, payload, respond, command):
     ack()
     args = (command.get("text") or "").strip().split()
@@ -341,7 +374,7 @@ def rit_router(ack, payload, respond, command):
         respond("Unknown subcommand. Usage: /rit chef")
         return
 
-    data = get_todays_visiting_chefs_from_locations()
+    data = get_todays_visiting_chefs_from_locations_selenium()
     respond(format_chefs_message(data))
 
 if __name__ == '__main__':
