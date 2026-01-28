@@ -362,6 +362,7 @@ def format_chefs_message(chefs_by_loc: dict[str, list[str]]) -> str:
 		lines.append("")
 	return "\n".join(lines).strip()
 
+@app.command("/rit")
 def rit_router(ack, payload, respond, command):
     ack()
     args = (command.get("text") or "").strip().split()
