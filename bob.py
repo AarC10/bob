@@ -280,6 +280,7 @@ def get_todays_visiting_chefs():
 
 	header = soup.find(lambda tag: tag.name in ("h2", "h3") and "Today's Visiting Chefs" in tag.get_text())
 	if not header:
+		print("Header not found for Visiting Chefs")
 		return {}
 
 	section = header.find_parent("section") or header.parent
@@ -315,11 +316,11 @@ def rit_router(ack, payload, respond, command):
 	args = (command.get("text") or "").strip().split()
 
 	if not args:
-		respond("Usage: /rit chefs")
+		respond("Usage: /rit chef")
 		return
 
 	if args[0].lower() != "chef":
-		respond("Unknown subcommand. Usage: /rit chefs")
+		respond("Unknown subcommand. Usage: /rit chef")
 		return
 
 	try:
