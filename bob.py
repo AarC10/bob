@@ -330,12 +330,12 @@ def _collect_visiting_chefs(chef_data: dict, date_str: str) -> list[str]:
 					continue
 				name = menu.get("name") or "Unknown chef"
 				note = menu.get("name_note")
-				description = menu.get("description")
+				# description = menu.get("description")
 				parts = [name]
 				if note:
 					parts.append(note)
-				if description:
-					parts.append(description)
+				# if description:
+					# parts.append(description)
 				chefs.append(" — ".join(parts))
 	return chefs
 
