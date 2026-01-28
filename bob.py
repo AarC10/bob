@@ -170,6 +170,40 @@ def react_to_message(message_link, reaction):
 # app.client.chat_scheduleMessage(channel = "", post_at = "", text = "")
 
 
+def cleanup_emotes(message_link: str) -> None:
+	message_id = message_link.split("/")[-1]
+	channel_id = message_link.split("/")[-2]
+	ts = message_id[:-6] + "." + message_id[-6:]
+
+	me = app.client.auth_test()["user_id"]
+
+	removed = []
+	failed = []  # (emoji, error)
+
+	try:
+		resp = app.client.reactions_get(channel=channel_id, timestamp=ts)
+		reactions = resp.get("message", {}).get("reactions", [])
+	except Exception as e:
+		print(f"Failed to fetch reactions: {e}")
+		return
+
+	for r in reactions:
+		emoji = r.get("name")
+		users = r.get("users", [])
+		if not emoji or me not in users:
+			continue
+
+		try:
+			app.client.reactions_remove(channel=channel_id, timestamp=ts, name=emoji)
+			removed.append(emoji)
+		except Exception as e:
+			failed.append((emoji, str(e)))
+
+	print(f"Removed ({len(removed)}): {removed}")
+	if failed:
+		print(f"Failed ({len(failed)}):")
+		for emoji, err in failed:
+			print(f"  - {emoji}: {err}")
 
 
 # @app.event({"type": "message", "subtype": None})
