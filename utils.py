@@ -3,6 +3,15 @@ import os
 import threading
 import time
 
+# Global app instance
+_app = None
+
+
+def set_app(app):
+	"""Set the global app instance for utility functions."""
+	global _app
+	_app = app
+
 
 def check_user_in_payload(payload):
 	"""Check if user has DEV or MOD permissions."""
@@ -19,22 +28,22 @@ def parse_message_link(message_link: str) -> tuple[str, str]:
 	return channel_id, ts
 
 
-def react_to_message(app_client, message_link: str, reaction: str):
+def react_to_message(message_link: str, reaction: str):
 	"""Add a reaction to a message."""
 	channel_id, ts = parse_message_link(message_link)
-	app_client.reactions_add(channel=channel_id, name=reaction, timestamp=ts)
+	_app.client.reactions_add(channel=channel_id, name=reaction, timestamp=ts)
 
 
-def cleanup_emotes(app_client, message_link: str) -> None:
+def cleanup_emotes(message_link: str) -> None:
 	"""Remove all reactions from a message that were added by this bot."""
 	channel_id, ts = parse_message_link(message_link)
-	me = app_client.auth_test()["user_id"]
+	me = _app.client.auth_test()["user_id"]
 
 	removed = []
 	failed = []  # (emoji, error)
 
 	try:
-		resp = app_client.reactions_get(channel=channel_id, timestamp=ts)
+		resp = _app.client.reactions_get(channel=channel_id, timestamp=ts)
 		reactions = resp.get("message", {}).get("reactions", [])
 	except Exception as e:
 		print(f"Failed to fetch reactions: {e}")
@@ -47,7 +56,7 @@ def cleanup_emotes(app_client, message_link: str) -> None:
 			continue
 
 		try:
-			app_client.reactions_remove(channel=channel_id, timestamp=ts, name=emoji)
+			_app.client.reactions_remove(channel=channel_id, timestamp=ts, name=emoji)
 			removed.append(emoji)
 		except Exception as e:
 			failed.append((emoji, str(e)))
@@ -64,13 +73,13 @@ _reaction_thread_stop = threading.Event()
 _reaction_thread = None
 
 
-def react_spam(app_client, message_link: str, delay: float = 1.0):
+def react_spam(message_link: str, delay: float = 1.0):
 	"""React to a message with all available custom emojis, one per second."""
 	global _reaction_thread, _reaction_thread_stop
 	
 	channel_id, ts = parse_message_link(message_link)
 	
-	emoji_list = app_client.emoji_list()
+	emoji_list = _app.client.emoji_list()
 	emojis = list(emoji_list.get("emoji", {}).keys())
 	
 	standard = ["thumbsup", "thumbsdown", "heart", "eyes", "fire", "100", "rocket", "tada"]
@@ -85,7 +94,7 @@ def react_spam(app_client, message_link: str, delay: float = 1.0):
 				print("Stopped by user request")
 				break
 			try:
-				app_client.reactions_add(channel=channel_id, timestamp=ts, name=emoji)
+				_app.client.reactions_add(channel=channel_id, timestamp=ts, name=emoji)
 				print(f"Added: {emoji}")
 				time.sleep(delay)
 			except Exception as e:
