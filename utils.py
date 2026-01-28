@@ -100,8 +100,16 @@ def react_spam(message_link: str, delay: float = 1.0):
 				print(f"Added: {emoji}")
 				time.sleep(delay)
 			except Exception as e:
-				print(f"Failed {emoji}: {e}")
-				continue
+				error_str = str(e).lower()
+				if "ratelimited" in error_str or "rate_limited" in error_str:
+					print(f"Rate limited - stopping reaction spam")
+					break
+				elif "too_many_reactions" in error_str:
+					print(f"Too many reactions on message - stopping")
+					break
+				else:
+					print(f"Failed {emoji}: {e}")
+					continue
 		print("Done!")
 	
 	_reaction_thread = threading.Thread(target=_react_loop, daemon=True)
